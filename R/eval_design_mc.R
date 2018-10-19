@@ -215,6 +215,11 @@ eval_design_mc = function(RunMatrix, model, alpha,
     if (is.null(advancedoptions$GUI)) {
       advancedoptions$GUI = FALSE
     }
+    if (is.null(advancedoptions$ddf)) {
+      ddf = "Satterthwaite"
+    } else {
+      ddf = advancedoptions$ddf
+    }
     if (!is.null(advancedoptions$progressBarUpdater)) {
       progressBarUpdater = advancedoptions$progressBarUpdater
     } else {
@@ -439,14 +444,14 @@ eval_design_mc = function(RunMatrix, model, alpha,
       RunMatrixReduced$Y = responses[, j]
       if (blocking) {
         if (glmfamilyname == "gaussian") {
-          fit = lme4::lmer(model_formula, data = RunMatrixReduced, contrasts = contrastslist)
+          fit = lmerTest::lmer(model_formula, data = RunMatrixReduced, contrasts = contrastslist)
           if (calceffect) {
-            effect_pvals = effectpowermc(fit, type = anovatype, test = "Pr(>Chisq)")
+            effect_pvals = effectpowermc(fit, type = anovatype, test = "Pr(>F)", splitplot=TRUE)
           }
         } else {
           fit = lme4::glmer(model_formula, data = RunMatrixReduced, family = glmfamily, contrasts = contrastslist)
           if (calceffect) {
-            effect_pvals = effectpowermc(fit, type = anovatype, test = pvalstring, test.statistic = anovatest)
+            effect_pvals = effectpowermc(fit, type = anovatype, test = pvalstring, test.statistic = anovatest, splitplot=TRUE)
           }
         }
         estimates[j, ] = coef(summary(fit))[, 1]
@@ -503,19 +508,19 @@ eval_design_mc = function(RunMatrix, model, alpha,
     }
     cl = parallel::makeCluster(numbercores)
     doParallel::registerDoParallel(cl, cores = numbercores)
-    power_estimates = foreach::foreach (j = 1:nsim, .combine = "rbind", .export = c("extractPvalues", "effectpowermc"), .packages = c("lme4")) %dopar% {
+    power_estimates = foreach::foreach (j = 1:nsim, .combine = "rbind", .export = c("extractPvalues", "effectpowermc"), .packages = c("lme4","lmerTest")) %dopar% {
       #simulate the data.
       RunMatrixReduced$Y = responses[, j]
       if (blocking) {
         if (glmfamilyname == "gaussian") {
-          fit = lme4::lmer(model_formula, data = RunMatrixReduced, contrasts = contrastslist)
+          fit = lmerTest::lmer(model_formula, data = RunMatrixReduced, contrasts = contrastslist)
           if (calceffect) {
-            effect_pvals = effectpowermc(fit, type = "III", test = "Pr(>Chisq)")
+            effect_pvals = effectpowermc(fit, type = anovatype, test = "Pr(>F)", splitplot=TRUE, ddf = ddf)
           }
         } else {
           fit = lme4::glmer(model_formula, data = RunMatrixReduced, family = glmfamily, contrasts = contrastslist)
           if (calceffect) {
-            effect_pvals = effectpowermc(fit, type = "III", test = "Pr(>Chisq)")
+            effect_pvals = effectpowermc(fit, type = anovatype, test = pvalstring, test.statistic = anovatest, splitplot=TRUE, ddf = ddf)
           }
         }
         estimates = coef(summary(fit))[, 1]
@@ -533,6 +538,7 @@ eval_design_mc = function(RunMatrix, model, alpha,
         }
         estimates = coef(fit)
       }
+
       #determine whether beta[i] is significant. If so, increment nsignificant
       pvals = extractPvalues(fit)
       power_values = rep(0, length(pvals))

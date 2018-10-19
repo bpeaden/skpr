@@ -13,10 +13,13 @@ extractPvalues = function(model_fit) {
   if (model_type == "lm" || model_type == "glm" || model_type == "glmerMod") {
     return(coef(summary(model_fit))[, 4])
   }
-  if (model_type == "lmerMod") {
+  if (model_type == "lmerMod" || model_type == "glmerMod") {
     estimates = coef(summary(model_fit))[, 1]
     se = coef(summary(model_fit))[, 2]
     return(2 * pnorm(-abs(estimates / se)))
+  }
+  if (model_type == "lmerModLmerTest") {
+    return(coef(summary(model_fit))[,5])
   }
   if (model_type == "survreg") {
     return(summary(model_fit)$table[, 4])
